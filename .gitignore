@@ -1,0 +1,30 @@
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# build artifacts
+tsconfig.tsbuildinfo
+
+# self-signed cert generated at runtime
+*.pem
+*.key
+*.crt
+
+# environment variables
+.env
+.env.local
+.env.*.local
+
+# Claude Code local settings (personal overrides)
+.claude/settings.local.json
+
+# Playwright
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# OS
+.DS_Store
+Thumbs.db

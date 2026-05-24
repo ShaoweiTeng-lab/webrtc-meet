@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; padding: 0; margin: 0; }
+
+html {
+  height: 100%;          /* fallback */
+  height: 100dvh;        /* dynamic viewport — excludes iOS address bar */
+  overflow: hidden;
+}
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-slide-up       { animation: slide-up 0.2s ease-out; }
+.animate-slide-in-right { animation: slide-in-right 0.25s ease-out; }
+.animate-fade-in        { animation: fade-in 0.15s ease-out; }
