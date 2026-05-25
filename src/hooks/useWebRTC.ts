@@ -44,6 +44,7 @@ export function useWebRTC({ roomId, username, socket, initialPeers }: UseWebRTCP
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [virtualBg, setVirtualBg] = useState<PresetBg | null>(null);
   const [isVirtualBgLoading, setIsVirtualBgLoading] = useState(false);
+  const [vbOutputCanvas, setVbOutputCanvas] = useState<HTMLCanvasElement | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -328,6 +329,7 @@ export function useWebRTC({ roomId, username, socket, initialPeers }: UseWebRTCP
         vbProcessorRef.current = null;
         vbTrackRef.current = null;
         setVirtualBg(null);
+        setVbOutputCanvas(null);
       }
       // Turn camera off — just disable track
       localStreamRef.current?.getVideoTracks().forEach((t) => { t.enabled = false; });
@@ -430,6 +432,7 @@ export function useWebRTC({ roomId, username, socket, initialPeers }: UseWebRTCP
           vbProcessorRef.current = null;
           vbTrackRef.current = null;
           setVirtualBg(null);
+          setVbOutputCanvas(null);
         }
 
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -524,12 +527,15 @@ export function useWebRTC({ roomId, username, socket, initialPeers }: UseWebRTCP
       vbProcessorRef.current?.stop();
       vbProcessorRef.current = null;
       const originalTrack = cameraVideoTrackRef.current;
-      const stream = localStreamRef.current;
-      if (stream) {
-        const vbTrack = vbTrackRef.current;
-        if (vbTrack) stream.removeTrack(vbTrack);
-        if (originalTrack) stream.addTrack(originalTrack);
-        setLocalStream(new MediaStream(stream.getTracks()));
+      // Create a new stream instead of mutating the existing one — mutating fires
+      // removetrack/addtrack events that cause srcObject = null flashes on iOS WebKit
+      if (localStreamRef.current) {
+        const newStream = new MediaStream([
+          ...localStreamRef.current.getAudioTracks(),
+          ...(originalTrack ? [originalTrack] : []),
+        ]);
+        localStreamRef.current = newStream;
+        setLocalStream(newStream);
       }
       for (const pc of peerConnections.current.values()) {
         const sender = pc.getSenders().find((s) => s.track?.kind === "video");
@@ -538,6 +544,7 @@ export function useWebRTC({ roomId, username, socket, initialPeers }: UseWebRTCP
         }
       }
       vbTrackRef.current = null;
+      setVbOutputCanvas(null);
       setVirtualBg(null);
       return;
     }
@@ -591,32 +598,45 @@ export function useWebRTC({ roomId, username, socket, initialPeers }: UseWebRTCP
     try {
       const { VirtualBackgroundProcessor } = await import("@/lib/virtualBackground");
       const processor = new VirtualBackgroundProcessor();
-      const processedTrack = await processor.start(originalTrack, drawConfig);
 
-      vbProcessorRef.current = processor;
-      vbTrackRef.current = processedTrack;
-
+      // Set error handler BEFORE start() — the render loop begins inside start() and
+      // can fail before start() returns (e.g. consecutive inference errors on iOS WebGL)
       processor.onError = () => {
         vbProcessorRef.current = null;
-        const failedTrack = vbTrackRef.current;
         vbTrackRef.current = null;
+        setVbOutputCanvas(null);
         setVirtualBg(null);
         setMediaError("虛擬背景執行發生錯誤，已自動關閉");
         setTimeout(() => setMediaError(null), 5000);
-        const stream = localStreamRef.current;
-        const origTrack = cameraVideoTrackRef.current;
-        if (stream && failedTrack) {
-          stream.removeTrack(failedTrack);
-          if (origTrack) stream.addTrack(origTrack);
-          setLocalStream(new MediaStream(stream.getTracks()));
+        if (localStreamRef.current) {
+          const origTrack = cameraVideoTrackRef.current;
+          const newStream = new MediaStream([
+            ...localStreamRef.current.getAudioTracks(),
+            ...(origTrack ? [origTrack] : []),
+          ]);
+          localStreamRef.current = newStream;
+          setLocalStream(newStream);
         }
       };
 
-      const stream = localStreamRef.current;
-      if (stream) {
-        stream.removeTrack(originalTrack);
-        stream.addTrack(processedTrack);
-        setLocalStream(new MediaStream(stream.getTracks()));
+      const processedTrack = await processor.start(originalTrack, drawConfig);
+
+      // outputCanvas is null if stop() was called during startup (onError already cleaned up)
+      if (!processor.outputCanvas) return;
+
+      vbProcessorRef.current = processor;
+      vbTrackRef.current = processedTrack;
+      setVbOutputCanvas(processor.outputCanvas);
+
+      // Create a new stream instead of mutating — avoids removetrack/addtrack events
+      // that trigger srcObject = null flashes in VideoTile, breaking playback on iOS
+      if (localStreamRef.current) {
+        const newStream = new MediaStream([
+          ...localStreamRef.current.getAudioTracks(),
+          processedTrack,
+        ]);
+        localStreamRef.current = newStream;
+        setLocalStream(newStream);
       }
       for (const pc of peerConnections.current.values()) {
         const sender = pc.getSenders().find((s) => s.track?.kind === "video");
@@ -649,6 +669,7 @@ export function useWebRTC({ roomId, username, socket, initialPeers }: UseWebRTCP
     virtualBg,
     isVirtualBgOn: virtualBg !== null,
     isVirtualBgLoading,
+    vbOutputCanvas,
     mediaError,
     toggleMute,
     toggleCamera,

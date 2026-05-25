@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { MicOff, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+
 const AVATAR_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
   "#8b5cf6", "#ec4899", "#06b6d4", "#f97316",
@@ -24,6 +25,7 @@ interface VideoTileProps {
   isScreenSharing?: boolean;
   objectFit?: "cover" | "contain";
   className?: string;
+  canvasOverride?: HTMLCanvasElement | null;
 }
 
 export function VideoTile({
@@ -35,8 +37,29 @@ export function VideoTile({
   isScreenSharing = false,
   objectFit = "cover",
   className,
+  canvasOverride,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const displayCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Copy VB output canvas to display canvas via rAF — bypasses iOS srcObject issues
+  useEffect(() => {
+    if (!canvasOverride) return;
+    let rafId: number;
+    const draw = () => {
+      const dst = displayCanvasRef.current;
+      if (dst) {
+        if (dst.width !== canvasOverride.width || dst.height !== canvasOverride.height) {
+          dst.width = canvasOverride.width;
+          dst.height = canvasOverride.height;
+        }
+        dst.getContext("2d")?.drawImage(canvasOverride, 0, 0);
+      }
+      rafId = requestAnimationFrame(draw);
+    };
+    rafId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(rafId);
+  }, [canvasOverride]);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -46,7 +69,7 @@ export function VideoTile({
     el.play().catch(() => {});
 
     const handleTrackChange = () => {
-      el.srcObject = null;
+      // Don't null srcObject first — causes blank flash and broken playback on iOS
       el.srcObject = stream;
       el.play().catch(() => {});
     };
@@ -70,7 +93,17 @@ export function VideoTile({
         className
       )}
     >
-      {/* Video element */}
+      {/* VB display canvas — shown when canvasOverride is active (bypasses iOS srcObject) */}
+      <canvas
+        ref={displayCanvasRef}
+        className={cn(
+          "absolute inset-0 w-full h-full",
+          objectFit === "contain" ? "object-contain" : "object-cover",
+          (!canvasOverride || isCameraOff) && "invisible"
+        )}
+      />
+
+      {/* Video element — hidden when canvasOverride takes over */}
       <video
         ref={videoRef}
         autoPlay
@@ -79,7 +112,7 @@ export function VideoTile({
         className={cn(
           "w-full h-full",
           objectFit === "contain" ? "object-contain" : "object-cover",
-          isCameraOff && "invisible"
+          (isCameraOff || !!canvasOverride) && "invisible"
         )}
       />
 

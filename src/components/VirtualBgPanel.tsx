@@ -3,9 +3,10 @@
 import { useRef } from "react";
 import { X, Upload, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PRESET_BG_OPTIONS, type PresetBg, type BlurBg, type ColorBg } from "@/lib/virtualBgOptions";
+import { PRESET_BG_OPTIONS, type PresetBg, type BlurBg, type ColorBg, type ImageBg } from "@/lib/virtualBgOptions";
 
-const blurOptions = PRESET_BG_OPTIONS.filter((o): o is BlurBg  => o.type === "blur");
+const blurOptions  = PRESET_BG_OPTIONS.filter((o): o is BlurBg  => o.type === "blur");
+const imageOptions = PRESET_BG_OPTIONS.filter((o): o is ImageBg => o.type === "image");
 const colorOptions = PRESET_BG_OPTIONS.filter((o): o is ColorBg => o.type === "color");
 
 function Checkmark() {
@@ -119,6 +120,22 @@ export function VirtualBgPanel({ activeBg, isLoading, onSelect, onClose }: Virtu
         </div>
       </section>
 
+      {/* Preset images */}
+      <section className="mb-4">
+        <p className="text-[#9aa0a6] text-[10px] uppercase tracking-wider mb-2">圖片背景</p>
+        <div className="grid grid-cols-3 gap-2">
+          {imageOptions.map((opt) => (
+            <Tile key={opt.id} selected={activeBg?.id === opt.id} onClick={() => onSelect(opt)} title={opt.label}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={opt.src} alt={opt.label} className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute bottom-0 inset-x-0 bg-black/40 text-[8px] text-white/80 text-center py-0.5 leading-none">
+                {opt.label}
+              </div>
+            </Tile>
+          ))}
+        </div>
+      </section>
+
       {/* Colors */}
       <section className="mb-4">
         <p className="text-[#9aa0a6] text-[10px] uppercase tracking-wider mb-2">純色背景</p>
@@ -138,13 +155,13 @@ export function VirtualBgPanel({ activeBg, isLoading, onSelect, onClose }: Virtu
         <label
           className={cn(
             "relative aspect-video w-16 rounded-lg cursor-pointer overflow-hidden border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors bg-[#3c4043]",
-            activeBg?.type === "image" ? "border-[#8ab4f8] border-solid" : "border-white/20 hover:border-white/40"
+            activeBg?.id?.startsWith("custom-") ? "border-[#8ab4f8] border-solid" : "border-white/20 hover:border-white/40"
           )}
         >
           <Upload className="w-3.5 h-3.5 text-white/50" />
           <span className="text-[9px] text-white/40">上傳</span>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-          {activeBg?.type === "image" && <Checkmark />}
+          {activeBg?.id?.startsWith("custom-") && <Checkmark />}
         </label>
       </section>
     </div>

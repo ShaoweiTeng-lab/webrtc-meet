@@ -105,6 +105,7 @@ export function RoomClient({ roomId }: { roomId: string }) {
     isScreenSharing,
     virtualBg,
     isVirtualBgLoading,
+    vbOutputCanvas,
     mediaError,
     toggleMute,
     toggleCamera,
@@ -188,6 +189,7 @@ export function RoomClient({ roomId }: { roomId: string }) {
             isScreenSharing={isScreenSharing}
             pinnedId={pinnedId}
             onSetPin={setPinnedId}
+            localVbCanvas={vbOutputCanvas}
           />
 
           {/* Floating room info — top left */}

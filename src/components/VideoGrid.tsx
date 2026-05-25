@@ -25,6 +25,7 @@ interface VideoGridProps {
   isScreenSharing: boolean;
   pinnedId?: string | null;
   onSetPin?: (id: string | null) => void;
+  localVbCanvas?: HTMLCanvasElement | null;
 }
 
 export function VideoGrid({
@@ -37,6 +38,7 @@ export function VideoGrid({
   isScreenSharing,
   pinnedId,
   onSetPin,
+  localVbCanvas,
 }: VideoGridProps) {
   const peerList = Array.from(peers.values());
 
@@ -89,6 +91,7 @@ export function VideoGrid({
             isScreenSharing={main?.isSharing ?? false}
             objectFit="contain"
             className="h-full w-full"
+            canvasOverride={main?.isLocal ? localVbCanvas : undefined}
           />
 
           {/* Unpin button */}
@@ -125,6 +128,7 @@ export function VideoGrid({
                     isMuted={t.isMuted}
                     isCameraOff={t.isCameraOff}
                     className="w-full h-full"
+                    canvasOverride={t.isLocal ? localVbCanvas : undefined}
                   />
                   {/* Pin hint overlay */}
                   <div className="absolute inset-0 rounded-2xl bg-white/0 group-hover:bg-white/10 group-active:bg-white/15 transition-colors flex items-center justify-center">
@@ -154,6 +158,7 @@ export function VideoGrid({
           isMuted={isMuted}
           isCameraOff={isCameraOff}
           className="w-full max-w-3xl h-full"
+          canvasOverride={localVbCanvas}
         />
       </div>
     );
@@ -177,6 +182,7 @@ export function VideoGrid({
         isCameraOff={isCameraOff}
         isScreenSharing={isScreenSharing}
         className={cn(totalCount === 3 ? "sm:col-span-2" : "")}
+        canvasOverride={localVbCanvas}
       />
       {peerList.map((peer) => (
         <VideoTile
